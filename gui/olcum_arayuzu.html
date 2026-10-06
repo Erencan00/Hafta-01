@@ -1,0 +1,1405 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hafta-01 Ölçüm Paneli</title>
+<style>
+:root {
+  --bg: #f4f6f9; --panel: #ffffff; --panel2: #f8fafc; --line: #e2e8f0; --line2: #cbd5e1;
+  --text: #0f172a; --muted: #64748b; --faint: #94a3b8;
+  --s1: #2563eb; --s2: #0d9488; --s3: #d97706; --s4: #7c3aed;
+  --ok: #16a34a; --ok-bg: #dcfce7; --bad: #dc2626; --bad-bg: #fee2e2; --warn: #b45309; --warn-bg: #fef3c7;
+  --accent: #2563eb; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 1px 8px rgba(15,23,42,.04);
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0b1120; --panel: #111827; --panel2: #0f172a; --line: #1f2937; --line2: #334155;
+    --text: #e5e7eb; --muted: #94a3b8; --faint: #64748b;
+    --s1: #60a5fa; --s2: #2dd4bf; --s3: #fbbf24; --s4: #a78bfa;
+    --ok: #4ade80; --ok-bg: #052e16; --bad: #f87171; --bad-bg: #450a0a; --warn: #fbbf24; --warn-bg: #422006;
+    --accent: #60a5fa; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0b1120; --panel: #111827; --panel2: #0f172a; --line: #1f2937; --line2: #334155;
+  --text: #e5e7eb; --muted: #94a3b8; --faint: #64748b;
+  --s1: #60a5fa; --s2: #2dd4bf; --s3: #fbbf24; --s4: #a78bfa;
+  --ok: #4ade80; --ok-bg: #052e16; --bad: #f87171; --bad-bg: #450a0a; --warn: #fbbf24; --warn-bg: #422006;
+  --accent: #60a5fa; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, -apple-system, sans-serif; }
+button, select { font: inherit; }
+.num, .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+header.top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+header.top h1 { font-size: 16px; margin: 0 12px 0 0; font-weight: 650; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12px; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.pill.on .dot { background: var(--ok); }
+.pill.rec { color: var(--bad); border-color: var(--bad); }
+.pill.rec .dot { background: var(--bad); animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.spacer { flex: 1; }
+
+.btn { border: 1px solid var(--line2); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger { color: var(--bad); }
+.btn.small { padding: 3px 8px; font-size: 12px; }
+select { border: 1px solid var(--line2); background: var(--panel); color: var(--text); border-radius: 8px; padding: 6px 8px; }
+
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; padding: 16px 20px 32px; }
+@media (max-width: 1100px) { .layout { grid-template-columns: 1fr; } }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+.card + .card { margin-top: 14px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; font-weight: 650; }
+.hint { color: var(--muted); font-size: 12px; }
+.warnbox { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 8px 10px; font-size: 12px; margin-top: 8px; }
+
+/* senaryo kartlari */
+.scn { position: relative; display: block; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; cursor: pointer; }
+.scn input { margin-right: 6px; }
+.scn b { font-weight: 650; }
+.scn .meta { display: flex; gap: 6px; margin-top: 4px; flex-wrap: wrap; }
+.tag { font-size: 11px; padding: 1px 7px; border-radius: 6px; background: var(--panel2); border: 1px solid var(--line); color: var(--muted); }
+.scn.sel { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.scn.active-mcu::after { content: "✓ MCU'da aktif"; display: block; margin-top: 4px; font-size: 11px; color: var(--ok); font-weight: 600; }
+.scn.disabled { opacity: .55; cursor: not-allowed; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row > .grow { flex: 1; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; font-size: 13px; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; }
+
+/* hero: secili olay */
+.hero-head { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+.pressed { font-size: 20px; font-weight: 700; padding: 8px 16px; border-radius: 10px; background: var(--panel2); color: var(--muted); border: 1px solid var(--line); transition: background .3s, color .3s; }
+.pressed.flash { background: var(--ok); color: #fff; border-color: var(--ok); }
+.pressed.got { background: var(--ok-bg); color: var(--ok); border-color: transparent; }
+.evt { font-size: 15px; }
+.evt b { font-size: 18px; }
+.rbig { margin-left: auto; text-align: right; }
+.rbig .v { font-size: 34px; font-weight: 750; line-height: 1; }
+.rbig .v small { font-size: 16px; font-weight: 600; color: var(--muted); }
+.badge { display: inline-block; font-size: 12px; font-weight: 650; padding: 2px 8px; border-radius: 6px; }
+.badge.ok { background: var(--ok-bg); color: var(--ok); }
+.badge.bad { background: var(--bad-bg); color: var(--bad); }
+.badge.warn { background: var(--warn-bg); color: var(--warn); }
+.gauge { height: 8px; border-radius: 4px; background: var(--panel2); border: 1px solid var(--line); margin-top: 6px; overflow: hidden; width: 260px; margin-left: auto; }
+.gauge > i { display: block; height: 100%; background: var(--ok); }
+.gauge.bad > i { background: var(--bad); }
+
+.tl-wrap { margin-top: 14px; }
+.tl-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+svg { display: block; width: 100%; }
+svg text { fill: var(--text); font-family: "Segoe UI", system-ui, sans-serif; }
+svg .muted { fill: var(--muted); }
+svg .axis { stroke: var(--line2); }
+svg .grid { stroke: var(--line); }
+svg .dl { stroke: var(--bad); stroke-dasharray: 6 4; stroke-width: 1.5; }
+
+.stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+@media (max-width: 800px) { .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stage { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; border-top: 4px solid var(--c); background: var(--panel); }
+.stage .nm { font-weight: 650; font-size: 13px; }
+.stage .ex { color: var(--muted); font-size: 12px; }
+.stage .val { font-size: 26px; font-weight: 750; margin: 6px 0 0; }
+.stage .val small { font-size: 14px; color: var(--muted); font-weight: 600; }
+.stage .pct { font-size: 12px; color: var(--muted); }
+.stage .mini { height: 6px; border-radius: 3px; background: var(--panel2); margin: 8px 0 4px; position: relative; overflow: hidden; }
+.stage .mini > i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--c); }
+.stage .rng { font-size: 11.5px; color: var(--muted); }
+
+table { border-collapse: collapse; width: 100%; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th { font-size: 12px; color: var(--muted); font-weight: 600; position: sticky; top: 0; background: var(--panel); }
+td.l, th.l { text-align: left; }
+tbody tr:hover { background: var(--panel2); }
+tr.sel td { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+tr.click { cursor: pointer; }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.scroll { max-height: 420px; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.stackcell { width: 160px; }
+.stackcell .sb { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--panel2); }
+.stackcell .sb > i { display: block; height: 100%; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.stat .k { font-size: 12px; color: var(--muted); }
+.stat .v { font-size: 18px; font-weight: 700; }
+.stat.bad .v { color: var(--bad); }
+
+.chart-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.chart-head h3 { margin: 0; font-size: 14px; font-weight: 650; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+.tab { padding: 6px 12px; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+.tab.on { color: var(--text); border-bottom-color: var(--accent); font-weight: 600; }
+.raw { font-family: var(--mono); font-size: 12px; white-space: pre; max-height: 420px; overflow: auto; background: var(--panel2); padding: 8px; border-radius: 8px; }
+#tip { position: fixed; pointer-events: none; z-index: 20; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 8px 10px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.18); display: none; min-width: 190px; }
+#tip .r { display: flex; justify-content: space-between; gap: 14px; }
+.demo-banner { background: var(--warn-bg); color: var(--warn); padding: 6px 20px; font-size: 13px; text-align: center; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 1300px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="demoBanner" class="demo-banner" hidden>DEMO modu: veriler simüle ediliyor, seri port ve dosya yazımı kapalı. Gerçek kullanım için adresteki <b>#demo</b> kısmını silin.</div>
+<header class="top">
+  <h1>Hafta-01 · UART Ölçüm Paneli</h1>
+  <select id="portSel" title="Port"></select>
+  <label class="hint" for="baudSel">Baud</label>
+  <select id="baudSel" title="UART hızı"></select>
+  <button class="btn" id="connBtn">Bağlan</button>
+  <button class="btn" id="baudBtn" title="Seçili hızı önce MCU'ya, sonra PC'ye uygular">Hızı MCU'ya uygula</button>
+  <span class="pill" id="connPill"><span class="dot"></span><span id="connTxt">Bağlı değil</span></span>
+  <span class="hint" id="baudInfo">8N1 · kart resetten sonra 115200 ile başlar</span>
+  <span class="spacer"></span>
+  <span class="pill" id="recPill" hidden><span class="dot"></span><span id="recTxt">KAYIT</span></span>
+  <button class="btn small" id="themeBtn" title="Tema">Tema</button>
+</header>
+<div id="noSerial" class="warnbox" style="margin:12px 20px 0" hidden>Bu tarayıcı Web Serial API'yi desteklemiyor. Chrome veya Edge kullanın.</div>
+
+<div class="layout">
+  <!-- ======================= SOL PANEL ======================= -->
+  <aside>
+    <section class="card">
+      <h2>Senaryo</h2>
+      <div id="scnList"></div>
+      <button class="btn primary" id="applyBtn" style="width:100%;margin-top:6px">Senaryoyu MCU'ya uygula</button>
+      <div class="hint" id="mcuScnTxt" style="margin-top:8px">MCU senaryosu: bilinmiyor</div>
+    </section>
+
+    <section class="card">
+      <h2>Deney</h2>
+      <div class="row"><button class="btn grow" id="folderBtn">Klasör seç</button></div>
+      <div class="hint" id="folderTxt" style="margin-top:6px">CSV klasörü: seçilmedi (proje/measurement)</div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn primary grow" id="recBtn">Kaydı başlat</button>
+        <button class="btn danger" id="cancelBtn">İptal</button>
+      </div>
+      <div class="hint" id="recInfo" style="margin-top:8px">Kayıt yok</div>
+      <div class="hint" style="margin-top:8px">Kayıt sürerken MCU'ya hiçbir şey gönderilmez; tüm süreler MCU'da TIM2 (1 µs) ile ölçülür.</div>
+    </section>
+
+    <section class="card">
+      <h2>Ek iş doğrulaması</h2>
+      <dl class="kv" id="calKv">
+        <dt>2 ms iş</dt><dd class="num" id="cal2">-</dd>
+        <dt>5 ms iş</dt><dd class="num" id="cal5">-</dd>
+      </dl>
+      <div class="hint" style="margin-top:6px">MCU açılışta ölçer (<span class="mono"># CAL</span> satırı). Görmek için kartı resetleyin.</div>
+    </section>
+
+    <section class="card">
+      <h2>Telemetri (TEL)</h2>
+      <dl class="kv">
+        <dt>Mesaj</dt><dd class="num" id="telCnt">0</dd>
+        <dt>Son görev süresi</dt><dd class="num" id="telLast">-</dd>
+        <dt>Ort / maks</dt><dd class="num" id="telAvg">-</dd>
+      </dl>
+      <div class="hint" style="margin-top:6px">Ek iş olmasa da görev süresi sıfır değildir.</div>
+    </section>
+  </aside>
+
+  <!-- ======================= ANA ALAN ======================= -->
+  <main>
+    <!-- Secili olay -->
+    <section class="card" id="hero">
+      <div class="hero-head">
+        <div class="pressed" id="pressed">Buton bekleniyor</div>
+        <div class="evt" id="evtTxt">Olay <b>-</b></div>
+        <button class="btn small" id="followBtn" hidden>Son olayı takip et</button>
+        <div class="rbig">
+          <div class="hint">Yanıt süresi R = t4 − t0</div>
+          <div class="v num" id="rVal">- <small>ms</small></div>
+          <div id="rBadge" style="margin-top:4px"></div>
+          <div class="gauge" id="gauge" title="R / 20 ms deadline"><i style="width:0"></i></div>
+        </div>
+      </div>
+
+      <div class="tl-wrap">
+        <div class="tl-bar">
+          <div class="legend" id="stageLegend"></div>
+          <div class="row">
+            <span class="hint">Ölçek:</span>
+            <button class="btn small" id="scaleR">Yanıta göre</button>
+            <button class="btn small" id="scaleDL">Deadline'a göre</button>
+          </div>
+        </div>
+        <svg id="timeline" height="150"></svg>
+      </div>
+
+      <div class="stages" id="stageCards"></div>
+
+      <div style="margin-top:14px">
+        <table id="instTable">
+          <thead><tr><th class="l">An</th><th class="l">Tanım</th><th>Ham TIM2 (µs)</th><th>t0'dan itibaren</th><th>Önceki andan</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Kayit istatistigi -->
+    <section class="card">
+      <h2 id="statTitle">Kayıt istatistiği</h2>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <!-- Grafikler -->
+    <section class="card">
+      <div class="chart-head">
+        <h2 style="margin:0">Grafikler</h2>
+        <span class="spacer"></span>
+        <span class="hint">Olay grafikleri kaynağı:</span>
+        <select id="srcSel"></select>
+      </div>
+      <div class="chart-head" style="margin-top:8px"><h3>Grafik 1 · Olay numarasına göre yanıt süresi R (ms)</h3><div class="legend" id="lgR"></div></div>
+      <svg id="chartR" height="270"></svg>
+      <div class="chart-head" style="margin-top:18px"><h3>Grafik 2 · Olay başına aşama süreleri (ms, yığılmış)</h3><div class="legend" id="lgE"></div></div>
+      <svg id="chartE" height="290"></svg>
+      <div class="grid2" style="margin-top:18px">
+        <div>
+          <div class="chart-head"><h3>Grafik 3 · Senaryoya göre aşamaların ortalama süreleri (ms)</h3></div>
+          <svg id="chartS" height="300"></svg>
+        </div>
+        <div>
+          <div class="chart-head"><h3>Aşama karşılaştırması · min / ort / maks (ms)</h3></div>
+          <div class="scroll" style="max-height:300px"><table id="cmpTable"></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tablolar -->
+    <section class="card">
+      <div class="tabs" id="tabs">
+        <button class="tab on" data-tab="tBtn">BTN olayları</button>
+        <button class="tab" data-tab="tTel">TEL mesajları</button>
+        <button class="tab" data-tab="tSum">Özet (summary.csv)</button>
+        <button class="tab" data-tab="tRaw">Ham satırlar</button>
+      </div>
+      <div id="tBtn" class="scroll"><table id="btnTable"></table></div>
+      <div id="tTel" class="scroll" hidden><table id="telTable"></table></div>
+      <div id="tSum" class="scroll" hidden><table id="sumTable"></table></div>
+      <div id="tRaw" hidden><div class="raw" id="raw"></div></div>
+    </section>
+  </main>
+</div>
+<div id="tip"></div>
+
+<script>
+"use strict";
+// <core> ====================================================================================
+// GUI'den bagimsiz mantik (node ile test edilir). Python gui/core.py ile ayni kurallar.
+const DEADLINE_US = 20000;
+const SCN_COUNT = 6;
+// Firmware'deki kBaud tablosuyla ayni. Baud sutunu olmayan eski kayitlar 115200'de alinmisti.
+const BAUDS = [9600, 19200, 57600, 115200, 230400, 460800, 921600];
+const DEFAULT_BAUD = 115200;
+const dkey = (s, b) => s + "|" + b;                       // disk anahtari: senaryo|baud
+const dsplit = (k) => k.split("|").map(Number);
+const sortedKeys = (obj) => Object.keys(obj).filter((k) => obj[k].length)
+  .sort((a, b) => { const [s1, b1] = dsplit(a), [s2, b2] = dsplit(b); return s1 - s2 || b1 - b2; });
+const SCENARIOS = [
+  { period: 0,   work: 0, name: "Telemetri kapalı",       goal: "Referans yanıt süresi" },
+  { period: 100, work: 0, name: "10 Hz · 100 ms",         goal: "Düşük telemetri sıklığı" },
+  { period: 20,  work: 0, name: "50 Hz · 20 ms",          goal: "Orta telemetri sıklığı" },
+  { period: 10,  work: 0, name: "100 Hz · 10 ms",         goal: "Yüksek telemetri sıklığı" },
+  { period: 10,  work: 2, name: "100 Hz · 10 ms + ~2 ms iş", goal: "Ek CPU yükü" },
+  { period: 10,  work: 5, name: "100 Hz · 10 ms + ~5 ms iş", goal: "Daha fazla CPU yükü" },
+];
+const STATUSES = ["OK", "DROPI", "DROPQ", "TXERR", "TMO", "LOST", "LOST_PC"];
+const STATUS_TEXT = {
+  OK: "Tamamlandı", DROPI: "Drop (buttonQ)", DROPQ: "Drop (txQ)", TXERR: "TX hata",
+  TMO: "Timeout", LOST: "Kayıt kaybı (MCU)", LOST_PC: "Kayıt kaybı (PC)",
+};
+const STAGES = [
+  { key: "isr_to_task", a: "t0", b: "t1", name: "ISR → ButtonTask", expr: "t1 − t0", color: "var(--s1)",
+    desc: "Olay aktarımı + CPU beklemesi" },
+  { key: "task", a: "t1", b: "t2", name: "ButtonTask işleme", expr: "t2 − t1", color: "var(--s2)",
+    desc: "Yanıtın hazırlanması" },
+  { key: "queue", a: "t2", b: "t3", name: "txQ bekleme", expr: "t3 − t2", color: "var(--s3)",
+    desc: "Kuyrukta ve UART'ın boşalmasını bekleme" },
+  { key: "uart", a: "t3", b: "t4", name: "UART gönderim", expr: "t4 − t3", color: "var(--s4)",
+    desc: "Başlatma çağrısı → TC callback" },
+];
+const INSTANTS = [
+  ["t0", "Buton ISR girişi: filtrenin kabul ettiği kenar"],
+  ["t1", "ButtonTask olayı aldıktan hemen sonra"],
+  ["t2", "Yanıt için xQueueSend'den hemen önce"],
+  ["t3", "UART başlatma çağrısından hemen önce (ilk bit değil)"],
+  ["t4", "UART TC tamamlanması işlenirken (son bit sonrası)"],
+];
+// Bir anin olculmus olmasi icin gereken durumlar
+const HAS = { t0: ["OK", "DROPI", "DROPQ", "TXERR", "TMO"], t1: ["OK", "DROPQ", "TXERR", "TMO"],
+              t2: ["OK", "DROPQ", "TXERR", "TMO"], t3: ["OK", "TXERR", "TMO"], t4: ["OK"] };
+
+function u32diff(a, b) { return (b - a) >>> 0; }       // TIM2 32-bit sarmasina dayanikli
+function hasT(r, t) { return HAS[t].includes(r.status); }
+function stageUs(r, st) { return hasT(r, st.a) && hasT(r, st.b) ? u32diff(r[st.a], r[st.b]) : null; }
+function rUs(r) { return r.status === "OK" ? u32diff(r.t0, r.t4) : null; }
+function makeRec(scenario, id, status, t0 = 0, t1 = 0, t2 = 0, t3 = 0, t4 = 0, baud = DEFAULT_BAUD) {
+  return { scenario, id, status, t0, t1, t2, t3, t4, baud };
+}
+
+class ParseError extends Error {}
+
+function parseLine(line) {
+  line = line.trim();
+  if (!line) return null;
+  if (line.startsWith("#")) {
+    const m = /CAL\s+iters_per_ms=(\d+)\s+work2ms=(\d+)us\s+work5ms=(\d+)us/.exec(line);
+    if (m) return { kind: "CAL", itersPerMs: +m[1], work2Us: +m[2], work5Us: +m[3] };
+    return { kind: "COMMENT", text: line.slice(1).trim() };
+  }
+  const p = line.split(",");
+  const ints = (arr) => arr.map((x) => {
+    if (!/^\d+$/.test(x)) throw new ParseError("sayı değil: " + x);
+    return Number(x);
+  });
+  const chk = (s) => { if (s < 0 || s >= SCN_COUNT) throw new ParseError("senaryo aralık dışı"); };
+  if (p[0] === "SCN" && (p.length === 5 || p.length === 6)) {
+    const [scenario, period, work, nextId, baud] = ints(p.slice(1)); chk(scenario);
+    return { kind: "SCN", scenario, period, work, nextId, baud: baud === undefined ? null : baud };
+  }
+  if (p[0] === "BAUD" && p.length === 3) {
+    const [nw, old] = ints(p.slice(1));
+    return { kind: "BAUD", new: nw, old };
+  }
+  if (p[0] === "TEL" && p.length === 6) {
+    const [scenario, seq, temp, vbat, execUs] = ints(p.slice(1)); chk(scenario);
+    return { kind: "TEL", scenario, seq, tempC: temp / 10, vbat, execUs };
+  }
+  if (p[0] === "BTN" && p.length === 3) {
+    const [scenario, id] = ints(p.slice(1)); chk(scenario);
+    return { kind: "BTN", scenario, id };
+  }
+  if (p[0] === "REC" && p.length === 9) {
+    const [scenario, id] = ints(p.slice(1, 3)); chk(scenario);
+    const status = p[3];
+    if (!STATUSES.includes(status) || status === "LOST_PC") throw new ParseError("bilinmeyen durum: " + status);
+    const t = ints(p.slice(4));
+    if (t.some((x) => x > 0xFFFFFFFF)) throw new ParseError("zaman 32-bit dışında");
+    return { kind: "REC", rec: makeRec(scenario, id, status, ...t) };
+  }
+  throw new ParseError("tanımsız satır: " + line);
+}
+
+class Experiment {
+  constructor(scenario, startId = null, baud = DEFAULT_BAUD) {
+    this.scenario = scenario; this.startId = startId; this.baud = baud;
+    this.records = new Map(); this.parseErrors = 0; this.foreign = 0;
+  }
+  add(r) {
+    if (r.scenario !== this.scenario) { this.foreign++; return false; }
+    if (this.startId !== null && r.id < this.startId) return false;
+    r.baud = this.baud;                     // REC satiri hizi tasimaz; kaydin hizi gecerlidir
+    this.records.set(r.id, r); return true;
+  }
+  finalized() {
+    if (!this.records.size) return [];
+    const ids = [...this.records.keys()];
+    const lo = this.startId !== null ? this.startId : Math.min(...ids);
+    const hi = Math.max(...ids);
+    const out = [];
+    for (let i = lo; i <= hi; i++) out.push(this.records.get(i) || makeRec(this.scenario, i, "LOST_PC", 0, 0, 0, 0, 0, this.baud));
+    return out;
+  }
+}
+
+function mmm(xs) {
+  if (!xs.length) return null;
+  let mn = Infinity, mx = -Infinity, s = 0;
+  for (const x of xs) { if (x < mn) mn = x; if (x > mx) mx = x; s += x; }
+  return { min: mn, avg: s / xs.length, max: mx };
+}
+
+function summarize(scenario, recs) {
+  const ok = recs.filter((r) => r.status === "OK");
+  const R = ok.map(rUs);
+  const cnt = Object.fromEntries(STATUSES.map((s) => [s, recs.filter((r) => r.status === s).length]));
+  const stages = {};
+  for (const st of STAGES) stages[st.key] = mmm(ok.map((r) => stageUs(r, st)));
+  return {
+    scenario, events: recs.length, ok: ok.length, R: mmm(R),
+    over: R.filter((x) => x > DEADLINE_US).length, cnt, stages,
+  };
+}
+
+const ms3 = (us) => (us === null || us === undefined ? "" : (us / 1000).toFixed(3));
+
+const RECORD_COLUMNS = ["scenario", "baud", "id", "status", "t0_us", "t1_us", "t2_us", "t3_us", "t4_us",
+  "isr_to_task_ms", "task_ms", "queue_ms", "uart_ms", "R_ms", "deadline_miss"];
+
+function recordsToCsv(recs) {
+  const lines = [RECORD_COLUMNS.join(",")];
+  for (const r of recs) {
+    const t = (k) => (hasT(r, k) ? r[k] : "");
+    const R = rUs(r);
+    lines.push([r.scenario, r.baud, r.id, r.status, t("t0"), t("t1"), t("t2"), t("t3"), t("t4"),
+      ...STAGES.map((st) => ms3(stageUs(r, st))), ms3(R), R === null ? "" : (R > DEADLINE_US ? 1 : 0)].join(","));
+  }
+  return lines.join("\n") + "\n";
+}
+
+// Python ve HTML'in yazdigi dosyalarin ikisini de okur (ortak ham t*_us sutunlari)
+function csvToRecords(text) {
+  const lines = text.replace(/\r/g, "").split("\n").filter((l) => l.trim());
+  if (!lines.length) return [];
+  const head = lines[0].split(",");
+  const ix = (k) => head.indexOf(k);
+  const out = [];
+  for (const l of lines.slice(1)) {
+    const c = l.split(",");
+    const g = (k) => { const i = ix(k); return i < 0 || c[i] === "" || c[i] === undefined ? 0 : Number(c[i]); };
+    if (c[ix("id")] === undefined || c[ix("id")] === "") continue;
+    out.push(makeRec(g("scenario"), g("id"), c[ix("status")].trim(), g("t0_us"), g("t1_us"), g("t2_us"), g("t3_us"), g("t4_us"), g("baud") || DEFAULT_BAUD));
+  }
+  return out;
+}
+
+const SUMMARY_COLUMNS = ["scenario", "baud", "telemetry_period_ms", "extra_work_ms", "events", "ok",
+  "R_min_ms", "R_avg_ms", "R_max_ms", "over_20ms", "drop_isr", "drop_txq", "tx_error", "timeout",
+  "rec_lost_mcu", "rec_lost_pc",
+  ...STAGES.flatMap((st) => [st.key + "_min_ms", st.key + "_avg_ms", st.key + "_max_ms"])];
+
+function summaryRow(s, recs, baud = "") {
+  const x = summarize(s, recs);
+  const cfg = SCENARIOS[s];
+  const m = (o, k) => (o ? ms3(o[k]) : "");
+  return [
+    "S" + s, baud, cfg.period || "off", cfg.work, x.events, x.ok,
+    m(x.R, "min"), m(x.R, "avg"), m(x.R, "max"), x.over,
+    x.cnt.DROPI, x.cnt.DROPQ, x.cnt.TXERR, x.cnt.TMO, x.cnt.LOST, x.cnt.LOST_PC,
+    ...STAGES.flatMap((st) => [m(x.stages[st.key], "min"), m(x.stages[st.key], "avg"), m(x.stages[st.key], "max")]),
+  ];
+}
+
+// Veri olan her (senaryo, baud) bir satir; hic verisi olmayan senaryo bos bir satir
+function summaryRows(disk) {
+  const rows = [];
+  const keys = sortedKeys(disk);
+  for (let s = 0; s < SCN_COUNT; s++) {
+    const ks = keys.filter((k) => dsplit(k)[0] === s);
+    if (!ks.length) rows.push(summaryRow(s, [], ""));
+    for (const k of ks) rows.push(summaryRow(s, disk[k], dsplit(k)[1]));
+  }
+  return rows;
+}
+function summaryToCsv(disk) {
+  return [SUMMARY_COLUMNS.join(","), ...summaryRows(disk).map((r) => r.join(","))].join("\n") + "\n";
+}
+// s<n>.csv: bu senaryonun tum hizlardaki kayitlari
+function scenarioCsv(disk, s) {
+  return recordsToCsv(sortedKeys(disk).filter((k) => dsplit(k)[0] === s).flatMap((k) => disk[k]));
+}
+function splitByBaud(recs) {
+  const out = {};
+  for (const r of recs) (out[dkey(r.scenario, r.baud)] ||= []).push(r);
+  return out;
+}
+// </core> ===================================================================================
+
+if (typeof module !== "undefined") {
+  module.exports = { parseLine, ParseError, Experiment, summarize, recordsToCsv, csvToRecords, summaryToCsv,
+    summaryRow, summaryRows, scenarioCsv, splitByBaud, dkey, stageUs, rUs, u32diff, makeRec, STAGES,
+    SUMMARY_COLUMNS, RECORD_COLUMNS, BAUDS };
+} else {
+  main();
+}
+
+function main() {
+// ===================================== durum ===============================================
+const $ = (id) => document.getElementById(id);
+const S = {
+  port: null, reader: null, readDone: null, connected: false, demo: location.hash === "#demo",
+  mcuScn: null, nextExpectedId: null, exp: null, lastExp: null,
+  disk: {},                                   // "senaryo|baud" -> kayitlar
+  linkBaud: DEFAULT_BAUD, mcuBaud: null, baudSw: null, scnSeen: false,
+  dir: null, selScn: 0, session: [], selectedKey: null, follow: true,
+  tel: { n: 0, last: null, sum: 0, max: 0, rows: [] }, raw: [], parseErrors: 0,
+  scale: "R", src: "live",
+};
+const MAX_ROWS = 300, MAX_RAW = 600;
+
+// ===================================== yardimcilar =========================================
+const SVGNS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs, parent, text) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+function fmtMs(us, d = 3) { return us === null || us === undefined ? "-" : (us / 1000).toFixed(d); }
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function niceStep(raw) {
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * p;
+}
+function ticks(max, count = 5) {
+  const step = niceStep(max / count), out = [];
+  for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+const recKey = (r) => r.scenario + ":" + r.id;
+
+// tooltip
+const tip = $("tip");
+function showTip(ev, html) { tip.innerHTML = html; tip.style.display = "block"; moveTip(ev); }
+function moveTip(ev) {
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = ev.clientX + 14, y = ev.clientY + 14;
+  if (x + w > innerWidth - 8) x = ev.clientX - w - 14;
+  if (y + h > innerHeight - 8) y = ev.clientY - h - 14;
+  tip.style.left = x + "px"; tip.style.top = y + "px";
+}
+function hideTip() { tip.style.display = "none"; }
+function recTip(r) {
+  const R = rUs(r);
+  let h = `<div style="font-weight:650;margin-bottom:4px">Olay #${r.id} · S${r.scenario} · ${esc(STATUS_TEXT[r.status])}</div>`;
+  for (const st of STAGES) {
+    const v = stageUs(r, st);
+    h += `<div class="r"><span><span class="swatch" style="background:${st.color}"></span>${st.name}</span><span class="num">${v === null ? "-" : fmtMs(v) + " ms"}</span></div>`;
+  }
+  h += `<div class="r" style="margin-top:4px;font-weight:650"><span>R (t4 − t0)</span><span class="num">${R === null ? "-" : fmtMs(R) + " ms"}</span></div>`;
+  return h;
+}
+function bindTip(node, html, onClick) {
+  node.addEventListener("mouseenter", (e) => showTip(e, html()));
+  node.addEventListener("mousemove", moveTip);
+  node.addEventListener("mouseleave", hideTip);
+  if (onClick) { node.style.cursor = "pointer"; node.addEventListener("click", onClick); }
+}
+
+// ===================================== render planlayici ===================================
+let renderQueued = false;
+const dirty = new Set();
+function mark(...parts) { parts.forEach((p) => dirty.add(p)); if (!renderQueued) { renderQueued = true; requestAnimationFrame(render); } }
+function render() {
+  renderQueued = false;
+  const d = new Set(dirty); dirty.clear();
+  if (d.has("controls")) renderControls();
+  if (d.has("hero")) renderHero();
+  if (d.has("stats")) renderStats();
+  if (d.has("charts")) renderCharts();
+  if (d.has("btn")) renderBtnTable();
+  if (d.has("tel")) renderTel();
+  if (d.has("sum")) renderSummary();
+  if (d.has("raw")) renderRaw();
+}
+addEventListener("resize", () => mark("hero", "charts"));
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => mark("hero", "charts"));
+
+// ===================================== senaryo / kontroller =================================
+function buildScenarioList() {
+  const box = $("scnList");
+  SCENARIOS.forEach((c, s) => {
+    const lab = document.createElement("label");
+    lab.className = "scn"; lab.dataset.s = s;
+    lab.innerHTML = `<input type="radio" name="scn" value="${s}"><b>S${s}</b> · ${esc(c.name)}
+      <div class="meta"><span class="tag">TEL: ${c.period ? c.period + " ms" : "kapalı"}</span>
+      <span class="tag">Ek iş: ${c.work ? "~" + c.work + " ms" : "yok"}</span></div>
+      <div class="hint" style="margin-top:3px">${esc(c.goal)}</div>`;
+    lab.querySelector("input").addEventListener("change", () => { S.selScn = s; mark("controls"); });
+    box.appendChild(lab);
+  });
+}
+function renderControls() {
+  const rec = S.exp !== null;
+  const canTalk = S.connected && !rec;
+  document.querySelectorAll(".scn").forEach((lab) => {
+    const s = +lab.dataset.s;
+    lab.classList.toggle("sel", s === S.selScn);
+    lab.classList.toggle("active-mcu", s === S.mcuScn);
+    lab.classList.toggle("disabled", rec);
+    const inp = lab.querySelector("input");
+    inp.checked = s === S.selScn; inp.disabled = rec;
+  });
+  $("applyBtn").disabled = !canTalk || S.baudSw !== null;
+  $("baudBtn").disabled = !canTalk || S.baudSw !== null;
+  $("baudSel").disabled = rec || S.baudSw !== null;
+  $("connBtn").textContent = S.connected ? "Bağlantıyı kes" : "Bağlan";
+  $("connBtn").disabled = S.demo;
+  $("portSel").disabled = S.connected || S.demo;
+  $("connPill").classList.toggle("on", S.connected);
+  $("recBtn").textContent = rec ? "Kaydı bitir ve CSV kaydet" : "Kaydı başlat";
+  $("recBtn").disabled = !(S.connected || rec);
+  $("cancelBtn").disabled = !rec;
+  $("recPill").hidden = !rec;
+  if (rec) {
+    $("recTxt").textContent = `KAYIT · S${S.exp.scenario} @ ${S.exp.baud} · ${S.exp.records.size} olay`;
+    $("recInfo").textContent = `Kayıt sürüyor: S${S.exp.scenario} @ ${S.exp.baud} baud, ${S.exp.records.size} olay alındı`;
+  }
+  $("folderBtn").disabled = S.demo;
+}
+
+// ===================================== hero: secili olay ===================================
+function currentDataset() {
+  if (S.src === "live") {
+    const e = S.exp || S.lastExp;
+    return e ? { scenario: e.scenario, baud: e.baud, recs: e.finalized(), label: S.exp ? "canlı kayıt" : "son kayıt" } : null;
+  }
+  const [s, b] = dsplit(S.src);
+  return { scenario: s, baud: b, recs: S.disk[S.src] || [], label: `s${s}.csv` };
+}
+function selectedRecord() {
+  if (S.selectedKey) {
+    const all = [...S.session, ...(currentDataset()?.recs || [])];
+    const r = all.find((x) => recKey(x) === S.selectedKey);
+    if (r) return r;
+  }
+  return S.session[0] || null;
+}
+function selectRec(r) { S.selectedKey = recKey(r); S.follow = false; mark("hero", "btn", "charts"); $("hero").scrollIntoView({ behavior: "smooth", block: "start" }); }
+
+function renderHero() {
+  const r = selectedRecord();
+  $("followBtn").hidden = S.follow;
+  const legend = $("stageLegend");
+  if (!legend.childElementCount) {
+    legend.innerHTML = STAGES.map((st) => `<span><span class="swatch" style="background:${st.color}"></span>${st.name} (${st.expr})</span>`).join("");
+  }
+  $("scaleR").classList.toggle("primary", S.scale === "R");
+  $("scaleDL").classList.toggle("primary", S.scale === "DL");
+
+  if (!r) {
+    $("evtTxt").innerHTML = "Olay <b>-</b>";
+    $("rVal").innerHTML = "- <small>ms</small>"; $("rBadge").innerHTML = "";
+    drawTimeline(null); renderStageCards(null); renderInstants(null);
+    return;
+  }
+  const R = rUs(r);
+  $("evtTxt").innerHTML = `Olay <b>#${r.id}</b> · Senaryo <b>S${r.scenario}</b> · <b>${r.baud}</b> baud · <span class="hint">${esc(STATUS_TEXT[r.status])}</span>`;
+  $("rVal").innerHTML = R === null ? `- <small>ms</small>` : `${fmtMs(R)} <small>ms</small>`;
+  const g = $("gauge");
+  if (R === null) {
+    $("rBadge").innerHTML = `<span class="badge warn">${esc(STATUS_TEXT[r.status])} · R ölçülemedi</span>`;
+    g.querySelector("i").style.width = "0";
+  } else {
+    const miss = R > DEADLINE_US;
+    $("rBadge").innerHTML = miss
+      ? `<span class="badge bad">DEADLINE AŞILDI · +${fmtMs(R - DEADLINE_US)} ms</span>`
+      : `<span class="badge ok">Deadline içinde · ${fmtMs(DEADLINE_US - R)} ms pay · %${(R / DEADLINE_US * 100).toFixed(1)}</span>`;
+    g.classList.toggle("bad", miss);
+    g.querySelector("i").style.width = Math.min(100, R / DEADLINE_US * 100) + "%";
+  }
+  drawTimeline(r); renderStageCards(r); renderInstants(r);
+}
+
+function drawTimeline(r) {
+  const svg = $("timeline"); clear(svg);
+  const W = Math.max(svg.clientWidth || 900, 320), H = 150;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const L = 16, Rm = 16, top = 34, bh = 34;
+  if (!r) { svgEl("text", { x: W / 2, y: 70, "text-anchor": "middle", class: "muted" }, svg, "Butona basın: t0 → t4 zaman çizelgesi burada görünür"); return; }
+
+  const avail = INSTANTS.map(([t]) => t).filter((t) => hasT(r, t));
+  const end = u32diff(r.t0, r[avail[avail.length - 1]]);
+  const span = S.scale === "DL" ? Math.max(DEADLINE_US, end) * 1.04 : Math.max(end, 1) * 1.04;
+  const x = (us) => L + (us / span) * (W - L - Rm);
+
+  svgEl("rect", { x: L, y: top, width: W - L - Rm, height: bh, rx: 6, fill: cssVar("--panel2"), stroke: cssVar("--line") }, svg);
+  for (const st of STAGES) {
+    const v = stageUs(r, st);
+    if (v === null) continue;
+    const a = u32diff(r.t0, r[st.a]);
+    const x0 = x(a), w = Math.max(x(a + v) - x0, 2);
+    const seg = svgEl("rect", { x: x0, y: top, width: w, height: bh, fill: st.color, rx: 2 }, svg);
+    bindTip(seg, () => `<b>${st.name}</b> (${st.expr})<br>${st.desc}<div class="r" style="margin-top:4px"><span>Süre</span><span class="num">${fmtMs(v)} ms</span></div>`);
+    if (w > 70) svgEl("text", { x: x0 + w / 2, y: top + bh / 2 + 5, "text-anchor": "middle", "font-size": 13, "font-weight": 650, fill: "#fff", "pointer-events": "none" }, svg, fmtMs(v) + " ms");
+  }
+  // deadline
+  const dlx = x(DEADLINE_US);
+  if (dlx <= W - Rm + 0.5) {
+    svgEl("line", { x1: dlx, x2: dlx, y1: 8, y2: H - 4, class: "dl" }, svg);
+    svgEl("text", { x: dlx - 4, y: 18, "text-anchor": "end", "font-size": 12, fill: cssVar("--bad") }, svg, "Deadline 20 ms");
+  } else {
+    svgEl("text", { x: W - Rm, y: 18, "text-anchor": "end", "font-size": 12, fill: cssVar("--bad") }, svg, "Deadline 20 ms → (ölçek dışında)");
+  }
+  // anlar: carpismayi onlemek icin satirlara dagit
+  const lastX = [];
+  for (const t of avail) {
+    const off = u32diff(r.t0, r[t]);
+    const tx = x(off);
+    let row = 0;
+    while (lastX[row] !== undefined && tx - lastX[row] < 92) row++;
+    lastX[row] = tx;
+    const ly = top + bh + 20 + row * 30;
+    svgEl("line", { x1: tx, x2: tx, y1: top - 4, y2: ly - 12, stroke: cssVar("--text"), "stroke-width": 1, opacity: 0.55 }, svg);
+    svgEl("circle", { cx: tx, cy: top - 4, r: 3, fill: cssVar("--text") }, svg);
+    const anchor = tx < L + 40 ? "start" : tx > W - Rm - 40 ? "end" : "middle";
+    svgEl("text", { x: tx, y: ly, "text-anchor": anchor, "font-size": 12, "font-weight": 650 }, svg, t);
+    svgEl("text", { x: tx, y: ly + 13, "text-anchor": anchor, "font-size": 11, class: "muted" }, svg, "+" + fmtMs(off) + " ms");
+  }
+  svg.setAttribute("height", Math.max(H, top + bh + 20 + (lastX.length - 1) * 30 + 22));
+  svg.setAttribute("viewBox", `0 0 ${W} ${svg.getAttribute("height")}`);
+}
+
+function renderStageCards(r) {
+  const box = $("stageCards");
+  const ds = currentDataset();
+  const ref = ds && r && ds.scenario === r.scenario && ds.baud === r.baud ? summarize(ds.scenario, ds.recs)
+    : (r ? summarize(r.scenario, S.session.filter((x) => x.scenario === r.scenario && x.baud === r.baud)) : null);
+  const R = r ? rUs(r) : null;
+  box.innerHTML = STAGES.map((st) => {
+    const v = r ? stageUs(r, st) : null;
+    const rng = ref && ref.stages[st.key];
+    const pct = v !== null && R ? (v / R * 100).toFixed(1) + "% · R'nin payı" : "";
+    const fill = v !== null && rng && rng.max ? Math.min(100, v / rng.max * 100) : 0;
+    return `<div class="stage" style="--c:${st.color}">
+      <div class="nm">${st.name}</div><div class="ex">${st.expr} · ${st.desc}</div>
+      <div class="val num">${v === null ? "-" : fmtMs(v)} <small>ms</small></div>
+      <div class="pct">${pct || "&nbsp;"}</div>
+      <div class="mini" title="Bu olay / kayıttaki en büyük değer"><i style="width:${fill}%"></i></div>
+      <div class="rng num">${rng ? `min ${fmtMs(rng.min)} · ort ${fmtMs(rng.avg)} · maks ${fmtMs(rng.max)} ms` : "kayıt verisi yok"}</div>
+    </div>`;
+  }).join("");
+}
+
+function renderInstants(r) {
+  const tb = $("instTable").querySelector("tbody");
+  if (!r) { tb.innerHTML = `<tr><td class="l hint" colspan="5">Seçili olay yok</td></tr>`; return; }
+  let prev = null;
+  tb.innerHTML = INSTANTS.map(([t, desc]) => {
+    if (!hasT(r, t)) return `<tr><td class="l"><b>${t}</b></td><td class="l hint">${desc}</td><td class="hint">ölçülmedi</td><td></td><td></td></tr>`;
+    const off = u32diff(r.t0, r[t]);
+    const d = prev === null ? null : u32diff(prev, r[t]);
+    prev = r[t];
+    return `<tr><td class="l"><b>${t}</b></td><td class="l">${desc}</td><td class="num">${r[t]}</td>
+      <td class="num"><b>${fmtMs(off)} ms</b></td><td class="num">${d === null ? "-" : "+" + fmtMs(d) + " ms"}</td></tr>`;
+  }).join("");
+}
+
+// ===================================== istatistik ==========================================
+function renderStats() {
+  const ds = currentDataset();
+  $("statTitle").textContent = ds ? `İstatistik · S${ds.scenario} @ ${ds.baud} baud (${ds.label})` : "İstatistik";
+  const x = ds ? summarize(ds.scenario, ds.recs) : null;
+  const f = (o, k) => (o ? fmtMs(o[k]) : "-");
+  const items = x ? [
+    ["Başarılı ölçüm", `${x.ok} / ${x.events}`],
+    ["R min", f(x.R, "min") + " ms"], ["R ortalama", f(x.R, "avg") + " ms"], ["R maks (gözlenen)", f(x.R, "max") + " ms"],
+    ["> 20 ms (tamamlanan)", x.over, x.over > 0],
+    ["Drop buttonQ / txQ", `${x.cnt.DROPI} / ${x.cnt.DROPQ}`, x.cnt.DROPI + x.cnt.DROPQ > 0],
+    ["TX hata", x.cnt.TXERR, x.cnt.TXERR > 0], ["Timeout", x.cnt.TMO, x.cnt.TMO > 0],
+    ["Kayıt kaybı MCU / PC", `${x.cnt.LOST} / ${x.cnt.LOST_PC}`, x.cnt.LOST + x.cnt.LOST_PC > 0],
+  ] : [["Durum", "Kayıt yok"]];
+  if (S.exp) items.push(["Bozuk satır", S.exp.parseErrors, S.exp.parseErrors > 0]);
+  $("stats").innerHTML = items.map(([k, v, bad]) => `<div class="stat${bad ? " bad" : ""}"><div class="k">${k}</div><div class="v num">${v}</div></div>`).join("");
+}
+
+// ===================================== grafikler ===========================================
+function renderSrcSelect() {
+  const sel = $("srcSel");
+  const cur = S.src;
+  sel.innerHTML = `<option value="live">Canlı / son kayıt</option>` +
+    sortedKeys(S.disk).map((k) => { const [s, b] = dsplit(k); return `<option value="${k}">s${s}.csv @ ${b} baud (${S.disk[k].length} olay)</option>`; }).join("");
+  sel.value = cur;
+  if (sel.value !== cur) { S.src = "live"; sel.value = "live"; }
+}
+
+function frame(svg, H) {
+  clear(svg);
+  const W = Math.max(svg.clientWidth || 900, 320);
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  return { W, H, m: { l: 56, r: 18, t: 16, b: 38 } };
+}
+function yAxis(svg, f, ymax, label) {
+  const { W, H, m } = f;
+  const y = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
+  for (const v of ticks(ymax)) {
+    svgEl("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), class: "grid" }, svg);
+    svgEl("text", { x: m.l - 6, y: y(v) + 4, "text-anchor": "end", "font-size": 11, class: "muted" }, svg, v);
+  }
+  svgEl("text", { x: 14, y: (H - m.b + m.t) / 2, transform: `rotate(-90 14 ${(H - m.b + m.t) / 2})`, "text-anchor": "middle", "font-size": 12, class: "muted" }, svg, label);
+  return y;
+}
+function deadlineLine(svg, f, y) {
+  svgEl("line", { x1: f.m.l, x2: f.W - f.m.r, y1: y(20), y2: y(20), class: "dl" }, svg);
+  svgEl("text", { x: f.W - f.m.r - 4, y: y(20) - 5, "text-anchor": "end", "font-size": 11, fill: cssVar("--bad") }, svg, "Deadline 20 ms");
+}
+function xIdAxis(svg, f, lo, hi, xOf) {
+  const n = hi - lo + 1;
+  const step = Math.max(1, Math.round(niceStep(n / 10)));
+  for (let i = Math.ceil(lo / step) * step; i <= hi; i += step)
+    svgEl("text", { x: xOf(i), y: f.H - f.m.b + 16, "text-anchor": "middle", "font-size": 11, class: "muted" }, svg, i);
+  svgEl("text", { x: (f.m.l + f.W - f.m.r) / 2, y: f.H - 4, "text-anchor": "middle", "font-size": 12, class: "muted" }, svg, "Olay numarası (kimlik)");
+  svgEl("line", { x1: f.m.l, x2: f.W - f.m.r, y1: f.H - f.m.b, y2: f.H - f.m.b, class: "axis" }, svg);
+}
+function empty(svg, f, msg) { svgEl("text", { x: f.W / 2, y: f.H / 2, "text-anchor": "middle", class: "muted" }, svg, msg); }
+
+const LOSS_MARK = {
+  DROPI: ["v", "#9333ea"], DROPQ: ["v", "#a16207"], TXERR: ["s", "#dc2626"], TMO: ["s", "#ea580c"],
+  LOST: ["x", "#64748b"], LOST_PC: ["x", "currentColor"],
+};
+function lossMarker(svg, kind, cx, cy, color) {
+  const g = svgEl("g", { color: cssVar("--text") }, svg);
+  if (kind === "v") svgEl("path", { d: `M${cx - 6},${cy - 5} L${cx + 6},${cy - 5} L${cx},${cy + 5} Z`, fill: color }, g);
+  else if (kind === "s") svgEl("rect", { x: cx - 5, y: cy - 5, width: 10, height: 10, fill: color }, g);
+  else svgEl("path", { d: `M${cx - 5},${cy - 5} L${cx + 5},${cy + 5} M${cx + 5},${cy - 5} L${cx - 5},${cy + 5}`, stroke: color, "stroke-width": 2.2 }, g);
+  return g;
+}
+
+function renderCharts() {
+  renderSrcSelect();
+  const ds = currentDataset();
+  drawRChart(ds);
+  drawEventChart(ds);
+  drawScenarioChart();
+  renderCompare();
+}
+
+function drawRChart(ds) {
+  const svg = $("chartR"), f = frame(svg, 270);
+  const lg = $("lgR");
+  if (!ds || !ds.recs.length) { yAxis(svg, f, 25, "R (ms)"); empty(svg, f, "Veri yok"); lg.innerHTML = ""; return; }
+  const recs = ds.recs, lo = recs[0].id, hi = recs[recs.length - 1].id, n = hi - lo + 1;
+  const ok = recs.filter((r) => r.status === "OK");
+  const ymax = Math.max(20, ...ok.map((r) => rUs(r) / 1000)) * 1.15;
+  const y = yAxis(svg, f, ymax, "R (ms)");
+  const xOf = (id) => f.m.l + ((id - lo + 0.5) / n) * (f.W - f.m.l - f.m.r);
+  xIdAxis(svg, f, lo, hi, xOf);
+  deadlineLine(svg, f, y);
+  // kayipta kesilen cizgi
+  let d = "", prev = null;
+  for (const r of recs) {
+    if (r.status === "OK") { d += (prev === r.id - 1 ? "L" : "M") + xOf(r.id) + "," + y(rUs(r) / 1000); prev = r.id; }
+    else prev = null;
+  }
+  svgEl("path", { d, fill: "none", stroke: cssVar("--s1"), "stroke-width": 1.4, opacity: 0.6 }, svg);
+  const sel = selectedRecord();
+  for (const r of ok) {
+    const v = rUs(r), miss = v > DEADLINE_US, isSel = sel && recKey(sel) === recKey(r);
+    const c = svgEl("circle", { cx: xOf(r.id), cy: y(v / 1000), r: isSel ? 6.5 : 4, fill: miss ? cssVar("--bad") : cssVar("--s1"),
+      stroke: isSel ? cssVar("--text") : "none", "stroke-width": 2 }, svg);
+    bindTip(c, () => recTip(r), () => selectRec(r));
+  }
+  const counts = {};
+  for (const r of recs) if (r.status !== "OK") {
+    const [k, col] = LOSS_MARK[r.status];
+    counts[r.status] = (counts[r.status] || 0) + 1;
+    const g = lossMarker(svg, k, xOf(r.id), y(0), col === "currentColor" ? cssVar("--text") : col);
+    bindTip(g, () => recTip(r), () => selectRec(r));
+  }
+  const nOver = ok.filter((r) => rUs(r) > DEADLINE_US).length;
+  lg.innerHTML = `<span><span class="swatch" style="background:var(--s1)"></span>Tamamlanan (${ok.length - nOver})</span>
+    <span><span class="swatch" style="background:var(--bad)"></span>&gt; 20 ms (${nOver})</span>` +
+    Object.entries(counts).map(([s, c]) => `<span><span class="swatch" style="background:${LOSS_MARK[s][1] === "currentColor" ? "var(--text)" : LOSS_MARK[s][1]}"></span>${STATUS_TEXT[s]} (${c})</span>`).join("") +
+    `<span class="hint">· S${ds.scenario} @ ${ds.baud} baud · ${ds.label}</span>`;
+}
+
+function drawEventChart(ds) {
+  const svg = $("chartE"), f = frame(svg, 290);
+  $("lgE").innerHTML = STAGES.map((st) => `<span><span class="swatch" style="background:${st.color}"></span>${st.name}</span>`).join("");
+  if (!ds || !ds.recs.length) { yAxis(svg, f, 25, "Süre (ms)"); empty(svg, f, "Veri yok"); return; }
+  const recs = ds.recs, lo = recs[0].id, hi = recs[recs.length - 1].id, n = hi - lo + 1;
+  const tot = (r) => STAGES.reduce((s, st) => s + (stageUs(r, st) || 0), 0);
+  const ymax = Math.max(20, ...recs.map((r) => tot(r) / 1000)) * 1.12;
+  const y = yAxis(svg, f, ymax, "Süre (ms)");
+  const cw = (f.W - f.m.l - f.m.r) / n;
+  const xOf = (id) => f.m.l + (id - lo + 0.5) * cw;
+  xIdAxis(svg, f, lo, hi, xOf);
+  const bw = Math.max(2, Math.min(28, cw * 0.72));
+  const sel = selectedRecord();
+  for (const r of recs) {
+    const g = svgEl("g", { opacity: r.status === "OK" ? 1 : 0.45 }, svg);
+    let acc = 0;
+    for (const st of STAGES) {
+      const v = stageUs(r, st);
+      if (v === null) continue;
+      const y0 = y(acc / 1000), y1 = y((acc + v) / 1000);
+      svgEl("rect", { x: xOf(r.id) - bw / 2, y: y1, width: bw, height: Math.max(y0 - y1, 0.8), fill: st.color }, g);
+      acc += v;
+    }
+    if (sel && recKey(sel) === recKey(r))
+      svgEl("rect", { x: xOf(r.id) - bw / 2 - 2, y: y(acc / 1000) - 2, width: bw + 4, height: y(0) - y(acc / 1000) + 4, fill: "none", stroke: cssVar("--text"), "stroke-width": 1.5 }, svg);
+    if (r.status !== "OK") {
+      const [k, col] = LOSS_MARK[r.status];
+      lossMarker(g, k, xOf(r.id), y(acc / 1000) - 10, col === "currentColor" ? cssVar("--text") : col);
+    }
+    const hit = svgEl("rect", { x: xOf(r.id) - cw / 2, y: f.m.t, width: cw, height: f.H - f.m.t - f.m.b, fill: "transparent" }, svg);
+    bindTip(hit, () => recTip(r), () => selectRec(r));
+  }
+  deadlineLine(svg, f, y);
+}
+
+function scenarioData() {
+  const data = { ...S.disk };
+  let live = null;
+  if (S.exp && S.exp.records.size) { live = dkey(S.exp.scenario, S.exp.baud); data[live] = S.exp.finalized(); }
+  // Veri olan her (senaryo, baud) bir sutun; hic veri yoksa S0..S5 bos gosterilir
+  let keys = sortedKeys(data);
+  if (!keys.length) keys = [...Array(SCN_COUNT).keys()].map((s) => dkey(s, DEFAULT_BAUD));
+  return { data, live, keys };
+}
+
+function drawScenarioChart() {
+  const svg = $("chartS"), f = frame(svg, 300);
+  f.m.b = 44;
+  const { data, live, keys } = scenarioData();
+  const sums = keys.map((k) => summarize(dsplit(k)[0], data[k] || []));
+  const totals = sums.map((x) => STAGES.reduce((a, st) => a + (x.stages[st.key] ? x.stages[st.key].avg : 0), 0) / 1000);
+  const ymax = Math.max(1, ...totals) * 1.3;
+  const y = yAxis(svg, f, ymax, "Ortalama süre (ms)");
+  const cw = (f.W - f.m.l - f.m.r) / keys.length, bw = Math.min(64, cw * 0.6);
+  sums.forEach((x, i) => {
+    const [s, baud] = dsplit(keys[i]);
+    const cx = f.m.l + (i + 0.5) * cw;
+    svgEl("text", { x: cx, y: f.H - f.m.b + 16, "text-anchor": "middle", "font-size": 12, "font-weight": 650 }, svg, "S" + s + (keys[i] === live ? "*" : ""));
+    svgEl("text", { x: cx, y: f.H - f.m.b + 30, "text-anchor": "middle", "font-size": 10, class: "muted" }, svg, +(baud / 1000).toFixed(1) + "k");
+    if (!x.ok) { svgEl("text", { x: cx, y: y(0) - 6, "text-anchor": "middle", "font-size": 11, class: "muted" }, svg, "veri yok"); return; }
+    let acc = 0;
+    for (const st of STAGES) {
+      const v = x.stages[st.key].avg / 1000;
+      const y0 = y(acc), y1 = y(acc + v);
+      const rect = svgEl("rect", { x: cx - bw / 2, y: y1, width: bw, height: Math.max(y0 - y1, 0.8), fill: st.color }, svg);
+      bindTip(rect, () => `<b>S${s} @ ${baud} · ${st.name}</b> (${st.expr})<div class="r"><span>ortalama</span><span class="num">${v.toFixed(3)} ms</span></div><div class="r"><span>min / maks</span><span class="num">${fmtMs(x.stages[st.key].min)} / ${fmtMs(x.stages[st.key].max)} ms</span></div>`);
+      if (y0 - y1 > 15) svgEl("text", { x: cx, y: (y0 + y1) / 2 + 4, "text-anchor": "middle", "font-size": 10.5, fill: "#fff", "pointer-events": "none" }, svg, v.toFixed(2));
+      acc += v;
+    }
+    svgEl("text", { x: cx, y: y(acc) - 18, "text-anchor": "middle", "font-size": 11.5, "font-weight": 650 }, svg, `R ${fmtMs(x.R.avg, 2)}`);
+    svgEl("text", { x: cx, y: y(acc) - 5, "text-anchor": "middle", "font-size": 10.5, class: "muted" }, svg, `n=${x.ok}`);
+  });
+  if (live !== null) svgEl("text", { x: f.W - f.m.r, y: 12, "text-anchor": "end", "font-size": 11, class: "muted" }, svg, "* canlı kayıt");
+}
+
+function renderCompare() {
+  const { data, keys } = scenarioData();
+  const t = $("cmpTable");
+  let h = `<thead><tr><th class="l">Senaryo @ baud</th>${STAGES.map((st) => `<th><span class="swatch" style="background:${st.color}"></span>${st.expr}</th>`).join("")}<th>R</th></tr></thead><tbody>`;
+  for (const k of keys) {
+    const [s, baud] = dsplit(k);
+    const x = summarize(s, data[k] || []);
+    const cell = (o) => (o ? `<b>${fmtMs(o.avg)}</b><br><span class="hint">${fmtMs(o.min)} – ${fmtMs(o.max)}</span>` : `<span class="hint">-</span>`);
+    h += `<tr><td class="l"><b>S${s}</b> @ ${baud}<br><span class="hint">n=${x.ok}</span></td>${STAGES.map((st) => `<td class="num">${cell(x.stages[st.key])}</td>`).join("")}<td class="num">${cell(x.R)}</td></tr>`;
+  }
+  t.innerHTML = h + "</tbody>";
+}
+
+// ===================================== tablolar ============================================
+function renderBtnTable() {
+  const t = $("btnTable");
+  const sel = selectedRecord();
+  let h = `<thead><tr><th>Olay</th><th>Senaryo</th><th>Baud</th><th class="l">Durum</th>${STAGES.map((st) => `<th><span class="swatch" style="background:${st.color}"></span>${st.expr} (ms)</th>`).join("")}<th>R (ms)</th><th class="l">Dağılım</th><th class="l">20 ms</th></tr></thead><tbody>`;
+  for (const r of S.session) {
+    const R = rUs(r);
+    const parts = STAGES.map((st) => [st, stageUs(r, st)]);
+    const tot = parts.reduce((a, [, v]) => a + (v || 0), 0) || 1;
+    const bar = parts.map(([st, v]) => (v ? `<i style="width:${v / tot * 100}%;background:${st.color}"></i>` : "")).join("");
+    const dl = R === null ? `<span class="badge warn">${esc(r.status)}</span>` : R > DEADLINE_US ? `<span class="badge bad">AŞILDI</span>` : `<span class="badge ok">OK</span>`;
+    h += `<tr class="click${sel && recKey(sel) === recKey(r) ? " sel" : ""}" data-k="${recKey(r)}"><td class="num">#${r.id}</td><td>S${r.scenario}</td><td class="num">${r.baud}</td><td class="l">${esc(STATUS_TEXT[r.status])}</td>
+      ${parts.map(([, v]) => `<td class="num">${v === null ? "-" : fmtMs(v)}</td>`).join("")}<td class="num"><b>${R === null ? "-" : fmtMs(R)}</b></td>
+      <td class="stackcell"><div class="sb">${bar}</div></td><td class="l">${dl}</td></tr>`;
+  }
+  if (!S.session.length) h += `<tr><td class="l hint" colspan="11">Henüz buton olayı yok</td></tr>`;
+  t.innerHTML = h + "</tbody>";
+  t.querySelectorAll("tr.click").forEach((tr) => tr.addEventListener("click", () => {
+    const r = S.session.find((x) => recKey(x) === tr.dataset.k); if (r) selectRec(r);
+  }));
+}
+
+function renderTel() {
+  const T = S.tel;
+  $("telCnt").textContent = T.n;
+  $("telLast").textContent = T.last === null ? "-" : fmtMs(T.last) + " ms";
+  $("telAvg").textContent = T.n ? `${fmtMs(T.sum / T.n)} / ${fmtMs(T.max)} ms` : "-";
+  $("telTable").innerHTML = `<thead><tr><th>Senaryo</th><th>Sıra</th><th>Sıcaklık (°C)</th><th>Vbat (mV)</th><th>Görev süresi (ms)</th></tr></thead><tbody>` +
+    T.rows.map((m) => `<tr><td>S${m.scenario}</td><td class="num">${m.seq}</td><td class="num">${m.tempC.toFixed(1)}</td><td class="num">${m.vbat}</td><td class="num">${fmtMs(m.execUs)}</td></tr>`).join("") +
+    (T.rows.length ? "" : `<tr><td class="l hint" colspan="5">TEL mesajı yok (S0'da telemetri kapalıdır)</td></tr>`) + "</tbody>";
+}
+
+function renderSummary() {
+  $("sumTable").innerHTML = `<thead><tr>${SUMMARY_COLUMNS.map((c) => `<th>${c}</th>`).join("")}</tr></thead><tbody>` +
+    summaryRows(S.disk).map((row) => `<tr>${row.map((v) => `<td class="num">${v}</td>`).join("")}</tr>`).join("") + "</tbody>";
+}
+
+function renderRaw() {
+  const el = $("raw");
+  el.textContent = S.raw.join("\n");
+  el.scrollTop = el.scrollHeight;
+}
+
+// ===================================== gelen satirlar ======================================
+let flashTimer = null;
+function handleLine(text) {
+  S.raw.push(text); if (S.raw.length > MAX_RAW) S.raw.splice(0, S.raw.length - MAX_RAW);
+  mark("raw");
+  let m;
+  try { m = parseLine(text); }
+  catch (e) {
+    if (S.baudSw) return;                    // hiz gecisindeki bozuk baytlar sayilmaz
+    S.parseErrors++; if (S.exp) { S.exp.parseErrors++; mark("stats"); } return;
+  }
+  if (!m) return;
+  switch (m.kind) {
+    case "COMMENT":
+      if (S.exp && m.text.includes("olcum")) $("recInfo").textContent = "UYARI: MCU yeniden başladı, kimlikler sıfırlandı.";
+      break;
+    case "CAL":
+      $("cal2").textContent = `${fmtMs(m.work2Us)} ms ölçüldü`;
+      $("cal5").textContent = `${fmtMs(m.work5Us)} ms ölçüldü`;
+      break;
+    case "BAUD":
+      onBaudAck(m);
+      break;
+    case "SCN":
+      S.scnSeen = true;
+      S.mcuBaud = m.baud !== null ? m.baud : S.linkBaud;
+      if (S.baudSw && S.baudSw.phase === "confirm" && S.mcuBaud === S.baudSw.new) {
+        $("baudInfo").textContent = `UART hızı: ${S.baudSw.new} baud (MCU onayladı)`;
+        S.baudSw = null;
+      } else if (!S.baudSw) {
+        $("baudInfo").textContent = `UART hızı: ${S.mcuBaud} baud`;
+      }
+      S.mcuScn = m.scenario; S.nextExpectedId = m.nextId;
+      if (!S.exp) S.selScn = m.scenario;
+      $("mcuScnTxt").textContent = `MCU senaryosu: S${m.scenario} · TEL ${m.period ? m.period + " ms" : "kapalı"} · ek iş ${m.work} ms`;
+      mark("controls");
+      break;
+    case "TEL": {
+      const T = S.tel;
+      T.n++; T.last = m.execUs; T.sum += m.execUs; T.max = Math.max(T.max, m.execUs);
+      T.rows.unshift(m); if (T.rows.length > MAX_ROWS) T.rows.length = MAX_ROWS;
+      mark("tel");
+      break;
+    }
+    case "BTN": {
+      const p = $("pressed");
+      p.textContent = `Butona basıldı · #${m.id}`;
+      p.className = "pressed flash";
+      clearTimeout(flashTimer);
+      flashTimer = setTimeout(() => (p.className = "pressed got"), 700);
+      break;
+    }
+    case "REC": {
+      const r = m.rec;
+      S.nextExpectedId = r.id + 1;
+      S.session.unshift(r); if (S.session.length > MAX_ROWS) S.session.length = MAX_ROWS;
+      if (S.follow) S.selectedKey = null;
+      if (S.exp) S.exp.add(r);
+      if (r.status !== "OK") { const p = $("pressed"); p.textContent = `Olay #${r.id}: ${STATUS_TEXT[r.status]}`; p.className = "pressed"; }
+      mark("hero", "btn", "stats", "charts", "controls");
+      break;
+    }
+  }
+}
+
+// ===================================== Web Serial ==========================================
+async function refreshPorts() {
+  const sel = $("portSel");
+  if (!("serial" in navigator)) { sel.innerHTML = `<option>Web Serial yok</option>`; return; }
+  const ports = await navigator.serial.getPorts();
+  sel.innerHTML = ports.map((p, i) => {
+    const inf = p.getInfo();
+    const name = inf.usbVendorId === 0x0483 ? "ST-LINK VCP" : "Seri port";
+    return `<option value="${i}">${name}${inf.usbProductId ? " (" + inf.usbVendorId.toString(16) + ":" + inf.usbProductId.toString(16) + ")" : ""}</option>`;
+  }).join("") + `<option value="new">Yeni port seç…</option>`;
+}
+
+async function connect() {
+  let port;
+  const v = $("portSel").value;
+  if (v === "new" || v === "") port = await navigator.serial.requestPort();
+  else port = (await navigator.serial.getPorts())[+v];
+  const baud = +$("baudSel").value;
+  await port.open({ baudRate: baud, dataBits: 8, stopBits: 1, parity: "none" });
+  S.port = port; S.connected = true; S.linkBaud = baud; S.scnSeen = false;
+  $("connTxt").textContent = `Bağlı · ${baud}`;
+  mark("controls");
+  await refreshPorts();
+  readLoop();
+  await send("?\n");                         // kayit yok -> durum sorgusu serbest
+  setTimeout(() => {
+    if (S.connected && !S.scnSeen && !S.baudSw)
+      $("baudInfo").textContent = `MCU ${S.linkBaud} baud'da yanıt vermedi: hız farklı olabilir (kart resetten sonra 115200).`;
+  }, 1500);
+}
+
+// Web Serial acik portun hizini degistiremez: okumayi durdur, kapat, yeni hizla ac
+async function reopen(baud) {
+  if (S.demo) { S.linkBaud = baud; return; }
+  try { if (S.reader) await S.reader.cancel(); await S.readDone; await S.port.close(); } catch (e) {}
+  await S.port.open({ baudRate: baud, dataBits: 8, stopBits: 1, parity: "none" });
+  S.linkBaud = baud;
+  $("connTxt").textContent = `Bağlı · ${baud}`;
+  readLoop();
+}
+
+// ---------------- UART hizi degisimi ----------------
+// "B<baud>" -> MCU ESKI hizda "BAUD,<yeni>,<eski>" der ve hizini degistirir -> PC yeni hizla
+// porti acip "?" gonderir -> SCN gelirse tamam. Gelmezse MCU 3 sn sonra, PC de eski hiza doner.
+const BAUD_ACK_MS = 1500, BAUD_CONFIRM_MS = 2000, MCU_REVERT_MS = 3300;
+function applyBaud() {
+  const nw = +$("baudSel").value;
+  if (S.exp || S.baudSw || !S.connected) return;
+  if (nw === S.linkBaud) { $("baudInfo").textContent = `Zaten ${nw} baud`; return; }
+  S.baudSw = { new: nw, old: S.linkBaud, phase: "ack" };
+  $("baudInfo").textContent = `${S.linkBaud} → ${nw} baud isteniyor…`;
+  mark("controls");
+  send(`B${nw}\n`);
+  setTimeout(() => {
+    if (S.baudSw && S.baudSw.phase === "ack") {
+      $("baudInfo").textContent = `MCU hız değişimini onaylamadı; ${S.linkBaud} baud'da kalındı.`;
+      $("baudSel").value = S.linkBaud; S.baudSw = null; mark("controls");
+    }
+  }, BAUD_ACK_MS);
+}
+async function onBaudAck(m) {
+  const sw = S.baudSw;
+  if (!sw || sw.phase !== "ack" || m.new !== sw.new) return;
+  sw.phase = "confirm";
+  try { await reopen(sw.new); } catch (e) { $("baudInfo").textContent = "Port yeni hızla açılamadı: " + e.message; }
+  setTimeout(() => send("?\n"), 150);
+  setTimeout(async () => {
+    if (S.baudSw !== sw || sw.phase !== "confirm") return;
+    sw.phase = "revert";
+    $("baudInfo").textContent = `${sw.new} baud çalışmadı (ST-LINK/USB desteklemiyor olabilir); ${sw.old} baud'a dönülüyor…`;
+    try { await reopen(sw.old); } catch (e) {}
+    $("baudSel").value = sw.old;
+    setTimeout(() => {
+      S.baudSw = null;
+      send("?\n");
+      $("baudInfo").textContent = `${sw.new} baud çalışmadı; ${sw.old} baud'a dönüldü.`;
+      mark("controls");
+    }, Math.max(100, MCU_REVERT_MS - BAUD_CONFIRM_MS));
+  }, BAUD_CONFIRM_MS);
+}
+
+async function readLoop() {
+  const dec = new TextDecoderStream();
+  S.readDone = S.port.readable.pipeTo(dec.writable).catch(() => {});
+  S.reader = dec.readable.getReader();
+  let buf = "";
+  try {
+    for (;;) {
+      const { value, done } = await S.reader.read();
+      if (done) break;
+      buf += value;
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) { handleLine(buf.slice(0, i).replace(/\r$/, "")); buf = buf.slice(i + 1); }
+    }
+  } catch (e) {
+    $("connTxt").textContent = "Bağlantı hatası: " + e.message;
+  } finally {
+    S.reader.releaseLock();
+  }
+}
+
+async function disconnect() {
+  try { if (S.reader) await S.reader.cancel(); await S.readDone; await S.port.close(); } catch (e) {}
+  S.port = null; S.reader = null; S.connected = false;
+  $("connTxt").textContent = "Bağlantı kesildi";
+  mark("controls");
+}
+
+async function send(text) {
+  if (S.demo) { demoCommand(text); return; }
+  if (!S.port || !S.port.writable) return;
+  const w = S.port.writable.getWriter();
+  try { await w.write(new TextEncoder().encode(text)); } finally { w.releaseLock(); }
+}
+
+// ===================================== dosyalar ============================================
+const hasFS = "showDirectoryPicker" in window;
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("hafta01-olcum", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("kv");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k) { try { const db = await idb(); return await new Promise((res) => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); }); } catch { return null; } }
+async function idbSet(k, v) { try { const db = await idb(); db.transaction("kv", "readwrite").objectStore("kv").put(v, k); } catch {} }
+
+async function permitted(dir, ask) {
+  const o = { mode: "readwrite" };
+  if ((await dir.queryPermission(o)) === "granted") return true;
+  return ask ? (await dir.requestPermission(o)) === "granted" : false;
+}
+async function pickFolder() {
+  if (!hasFS) { alert("Bu tarayıcı klasöre yazamıyor; CSV'ler indirilecek."); return false; }
+  try { S.dir = await window.showDirectoryPicker({ id: "hafta01-measurement", mode: "readwrite" }); }
+  catch { return false; }
+  await idbSet("dir", S.dir);
+  await loadDisk();
+  return true;
+}
+async function readText(name) {
+  try { return await (await (await S.dir.getFileHandle(name)).getFile()).text(); } catch { return null; }
+}
+async function writeText(name, text) {
+  if (!S.dir) { download(name, text); return; }
+  const fh = await S.dir.getFileHandle(name, { create: true });
+  const w = await fh.createWritable(); await w.write(text); await w.close();
+}
+function download(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+async function loadDisk() {
+  S.disk = {};
+  for (let s = 0; s < SCN_COUNT; s++) { const t = await readText(`s${s}.csv`); if (t) Object.assign(S.disk, splitByBaud(csvToRecords(t))); }
+  const nm = S.dir.name;
+  $("folderTxt").innerHTML = `CSV klasörü: <b>${esc(nm)}</b>` + (nm !== "measurement" ? ` <span class="badge warn">beklenen: measurement</span>` : "");
+  mark("charts", "sum", "stats");
+}
+async function restoreFolder() {
+  if (!hasFS) { $("folderTxt").textContent = "Klasöre yazma desteklenmiyor: CSV'ler indirilir."; $("folderBtn").textContent = "CSV indirilecek"; return; }
+  const d = await idbGet("dir");
+  if (!d) return;
+  S.dir = d;
+  if (await permitted(d, false)) await loadDisk();
+  else { $("folderTxt").innerHTML = `CSV klasörü: <b>${esc(d.name)}</b> · <span class="badge warn">izin için "Klasör seç"e tıklayın</span>`; }
+}
+
+// ===================================== deney ===============================================
+async function startRecord() {
+  if (S.baudSw) { alert("Hız değişimi sürüyor, bitmesini bekleyin."); return; }
+  if (S.mcuBaud !== null && S.mcuBaud !== S.linkBaud) { alert(`MCU ${S.mcuBaud}, PC ${S.linkBaud} baud. Önce hızı eşitleyin.`); return; }
+  if (S.mcuScn === null) { alert("MCU senaryosu bilinmiyor. Senaryoyu MCU'ya uygulayın."); return; }
+  if (S.selScn !== S.mcuScn) { alert(`Seçili senaryo S${S.selScn}, MCU'da aktif olan S${S.mcuScn}.\nÖnce 'Senaryoyu MCU'ya uygula' ile eşitleyin.`); return; }
+  if (!S.demo && hasFS) {
+    if (!S.dir) { if (!(await pickFolder())) return; }
+    else if (!(await permitted(S.dir, true))) return;
+    await loadDisk();
+  }
+  S.exp = new Experiment(S.mcuScn, S.nextExpectedId, S.linkBaud);
+  S.src = "live"; S.follow = true; S.selectedKey = null;
+  mark("controls", "charts", "stats", "hero");
+}
+async function stopRecord() {
+  const exp = S.exp, recs = exp.finalized();
+  if (!recs.length) { if (confirm("Hiç olay kaydedilmedi. Kayıt kapatılsın mı?")) { S.exp = null; $("recInfo").textContent = "Kayıt yok"; mark("controls"); } return; }
+  const name = `s${exp.scenario}.csv`, key = dkey(exp.scenario, exp.baud);
+  const old = S.disk[key] || [];
+  if (old.length && !confirm(`${name} içinde S${exp.scenario} @ ${exp.baud} baud için zaten ${old.length} kayıt var.\nYeni deneyle değiştirilsin mi? (diğer hızlardaki kayıtlar korunur)`)) return;
+  S.disk[key] = recs;
+  if (S.demo) {
+    $("recInfo").textContent = `DEMO: ${name} @ ${exp.baud} belleğe alındı (${recs.length} olay), diske yazılmadı.`;
+  } else {
+    try {
+      await writeText(name, scenarioCsv(S.disk, exp.scenario));
+      await writeText("summary.csv", summaryToCsv(S.disk));
+    } catch (e) { S.disk[key] = old; alert("CSV yazılamadı: " + e.message); return; }
+    $("recInfo").textContent = `Kaydedildi: ${name} @ ${exp.baud} baud (${recs.length} olay) + summary.csv`;
+  }
+  S.lastExp = exp; S.exp = null; S.src = key;
+  mark("controls", "charts", "sum", "stats", "hero");
+}
+
+// ===================================== demo ================================================
+// Yalnizca #demo: MCU'yu kaba bir modelle taklit eder (gorsel onizleme icin).
+let demo = null;
+function demoCommand(text) {
+  const t = text.trim();
+  if (/^B\d+$/.test(t)) {                     // hiz degisimi: onay, sonra yeni hiz
+    const nw = +t.slice(1);
+    setTimeout(() => { handleLine(`BAUD,${nw},${demo.baud}`); demo.baud = nw; }, 30);
+    return;
+  }
+  if (/^S[0-5]$/.test(t)) { demo.scn = +t[1]; }
+  const c = SCENARIOS[demo.scn];
+  setTimeout(() => handleLine(`SCN,${demo.scn},${c.period},${c.work},${demo.next},${demo.baud}`), 30);
+}
+function demoEvent(scn, baud = DEFAULT_BAUD) {
+  const c = SCENARIOS[scn];
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  const lineUs = (bytes) => bytes * 10 * 1e6 / baud;   // 8N1: bayt basina 10 bit
+  let isr = rnd(22, 34), queue = rnd(82, 95);
+  const tel = lineUs(24), uart = lineUs(9) * rnd(0.99, 1.01), task = rnd(3, 5);
+  if (c.period) {
+    const P = c.period * 1000, W = c.work * 1000, ph = Math.random() * P;
+    if (ph < W) { isr += W - ph; queue += tel; }
+    else if (ph - W < tel) queue += tel - (ph - W);
+  }
+  const t0 = Math.floor(rnd(1e6, 4e9));
+  const t1 = t0 + Math.round(isr), t2 = t1 + Math.round(task), t3 = t2 + Math.round(queue), t4 = t3 + Math.round(uart);
+  return [t0, t1, t2, t3, t4].map((v) => v >>> 0);
+}
+function demoInit() {
+  demo = { scn: 5, next: 0, baud: DEFAULT_BAUD };
+  $("demoBanner").hidden = false;
+  S.connected = true; $("connTxt").textContent = "DEMO";
+  for (const [s, b] of [[0, 115200], [1, 115200], [3, 115200], [4, 115200], [0, 9600], [0, 921600], [1, 9600]])
+    S.disk[dkey(s, b)] = Array.from({ length: 30 }, (_, i) => makeRec(s, i, "OK", ...demoEvent(s, b), b));
+  handleLine("# Hafta-01 olcum: TIM2=1MHz DL=20000us filtre=30000us");
+  handleLine("# CAL iters_per_ms=6652 work2ms=2001us work5ms=5002us");
+  handleLine("SCN,5,10,5,0,115200");
+  S.selScn = 5;
+  startRecord();
+  for (let i = 0; i < 28; i++) {
+    for (let k = 0; k < 3; k++) handleLine(`TEL,5,${i * 3 + k},${240 + ((i + k) % 21)},${3300 - (i % 50)},${5000 + Math.round(Math.random() * 40)}`);
+    if (i === 9) { handleLine(`REC,5,${i},DROPQ,${demoEvent(5).slice(0, 3).join(",")},0,0`); continue; }
+    if (i === 17) continue;                           // PC'ye ulasmayan REC -> LOST_PC
+    if (i === 22) { const t = demoEvent(5); t[3] = (t[2] + 19600) >>> 0; t[4] = (t[3] + 790) >>> 0; handleLine(`BTN,5,${i}`); handleLine(`REC,5,${i},OK,${t.join(",")}`); continue; }
+    handleLine(`BTN,5,${i}`);
+    handleLine(`REC,5,${i},OK,${demoEvent(5).join(",")}`);
+  }
+  demo.next = 28;
+  setInterval(() => {
+    if (!S.exp && demo.scn === null) return;
+    handleLine(`BTN,${demo.scn},${demo.next}`);
+    handleLine(`REC,${demo.scn},${demo.next},OK,${demoEvent(demo.scn, demo.baud).join(",")}`);
+    demo.next++;
+  }, 2500);
+}
+
+// ===================================== baglama =============================================
+buildScenarioList();
+$("baudSel").innerHTML = BAUDS.map((b) => `<option value="${b}"${b === DEFAULT_BAUD ? " selected" : ""}>${b}</option>`).join("");
+$("baudBtn").addEventListener("click", applyBaud);
+$("connBtn").addEventListener("click", async () => {
+  try { if (S.connected) await disconnect(); else await connect(); }
+  catch (e) { if (e.name !== "NotFoundError") alert("Port açılamadı: " + e.message); }
+});
+$("applyBtn").addEventListener("click", () => {
+  if (S.exp) return;
+  $("mcuScnTxt").textContent = `MCU senaryosu: S${S.selScn} isteniyor…`;
+  send(`S${S.selScn}\n`);
+});
+$("recBtn").addEventListener("click", () => (S.exp ? stopRecord() : startRecord()));
+$("cancelBtn").addEventListener("click", () => {
+  if (S.exp && confirm("Kayıt kaydedilmeden atılsın mı?")) { S.exp = null; $("recInfo").textContent = "Kayıt iptal edildi"; mark("controls", "charts", "stats"); }
+});
+$("folderBtn").addEventListener("click", async () => {
+  if (S.dir && !(await permitted(S.dir, false))) { if (await permitted(S.dir, true)) { await loadDisk(); return; } }
+  await pickFolder();
+});
+$("followBtn").addEventListener("click", () => { S.follow = true; S.selectedKey = null; mark("hero", "btn", "charts"); });
+$("scaleR").addEventListener("click", () => { S.scale = "R"; mark("hero"); });
+$("scaleDL").addEventListener("click", () => { S.scale = "DL"; mark("hero"); });
+$("srcSel").addEventListener("change", (e) => { S.src = e.target.value; mark("charts", "stats", "hero"); });
+$("themeBtn").addEventListener("click", () => {
+  const r = document.documentElement;
+  const dark = r.dataset.theme ? r.dataset.theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+  r.dataset.theme = dark ? "light" : "dark";
+  mark("hero", "charts");
+});
+document.querySelectorAll(".tab").forEach((b) => b.addEventListener("click", () => {
+  document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === b));
+  for (const id of ["tBtn", "tTel", "tSum", "tRaw"]) $(id).hidden = id !== b.dataset.tab;
+}));
+addEventListener("beforeunload", (e) => { if (S.exp && !S.demo) { e.preventDefault(); e.returnValue = ""; } });
+
+if (!("serial" in navigator) && !S.demo) { $("noSerial").hidden = false; }
+else if ("serial" in navigator) {
+  refreshPorts();
+  navigator.serial.addEventListener("connect", refreshPorts);
+  navigator.serial.addEventListener("disconnect", (e) => { refreshPorts(); if (S.port === e.target) disconnect(); });
+}
+if (S.demo) demoInit(); else restoreFolder();
+mark("controls", "hero", "stats", "charts", "btn", "tel", "sum", "raw");
+}
+</script>
+</body>
+</html>
